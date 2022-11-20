@@ -15,6 +15,7 @@ from core.config import cfg
 from PIL import Image
 import cv2
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
@@ -59,6 +60,7 @@ def main(_argv):
     STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
     input_size = FLAGS.size
     video_path = FLAGS.video
+    detections_list = []
 
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -79,6 +81,12 @@ def main(_argv):
     except:
         vid = cv2.VideoCapture(video_path)
 
+    fps = vid.get(cv2.CAP_PROP_FPS)
+    frame_count = vid.get(cv2.CAP_PROP_FRAME_COUNT)
+    duration = fps/frame_count
+
+    time_actual_start = time.time()
+
     out = None
 
     # get video ready to save locally if flag is set
@@ -98,10 +106,9 @@ def main(_argv):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
         else:
-            print('Video has ended or failed, try a different video format!')
             break
         frame_num +=1
-        print('Frame #: ', frame_num)
+        # print('Frame #: ', frame_num)
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
@@ -205,6 +212,7 @@ def main(_argv):
             if not track.is_confirmed() or track.time_since_update > 1:
                 continue 
             bbox = track.to_tlbr()
+            bbox_2 = track.to_tlwh()
             class_name = track.get_class()
             
         # draw bbox on screen
@@ -216,11 +224,18 @@ def main(_argv):
 
         # if enable info flag then print details about each track
             if FLAGS.info:
-                print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+                current_time = str(int((time.time() - time_actual_start) / duration))
+                obj_class_id = class_name + '-' + str(track.track_id)
+                bbox_width = int(bbox_2[2])
+                bbox_height = int(bbox_2[3])
+                a_detection = [current_time, obj_class_id, str(bbox_width), str(bbox_height)]
+
+                detections_list.append(a_detection)
+                # print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
-        print("FPS: %.2f" % fps)
+        # print("FPS: %.2f" % fps)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
@@ -232,6 +247,11 @@ def main(_argv):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
     cv2.destroyAllWindows()
+    
+    # Create pandas dataframe from detections list
+    df = pd.DataFrame(detections_list, columns=['Time', 'Class-ID', 'Width', 'Height'])
+    df_detections = df.drop_duplicates(subset=df.columns[1], keep = 'first')
+    df_detections.to_csv('outputs/detections.csv', index = False)
 
 if __name__ == '__main__':
     try:
