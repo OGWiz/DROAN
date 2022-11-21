@@ -65,6 +65,6 @@ total_rows = len(new_list)
 total_columns = len(new_list[0])
   
 # With tkinter, show results
-root = Tk()
-t = Table(root)
-root.mainloop()
+root2 = Tk()
+t = Table(root2)
+root2.mainloop()
