@@ -6,3 +6,4 @@ deep_sort/__pycache__
 data
 outputs
 checkpoints
+.DS_Store
