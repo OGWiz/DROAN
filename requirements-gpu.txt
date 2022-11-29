@@ -7,3 +7,5 @@ absl-py
 matplotlib
 easydict
 pillow
+pandastable
+openpyxl

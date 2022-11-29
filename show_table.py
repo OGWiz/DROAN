@@ -1,6 +1,6 @@
 import pandas as pd
 from tkinter import *
-from pandastable import Table
+from pandastable import Table, config
 
 class TableApp(Frame):
         """Basic test frame for the table"""
@@ -12,9 +12,11 @@ class TableApp(Frame):
             self.main.title('Results')
             f = Frame(self.main)
             f.pack(fill=BOTH,expand=1)
-            df = pd.read_excel('outputs/clean_detections.xlsx')
+            df = pd.read_csv('outputs/clean_detections.csv')
             self.table = pt = Table(f, dataframe=df,
                                     showtoolbar=True, showstatusbar=True)
+            options = {'floatprecision': 10}
+            config.apply_options(options, pt)
             pt.show()
             return
 

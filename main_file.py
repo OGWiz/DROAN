@@ -1,21 +1,10 @@
 # No GUI
 import cv2
+import subprocess
 import pandas as pd
 from tkinter import *
 from tkinter import filedialog
-from subprocess import call
 from threaded_video import ThreadedVideo
-
-class Table:
-    def __init__(self, root):
-        for i in range(total_rows):
-            for j in range(total_columns):
-                 
-                self.e = Entry(root, width=20, fg='blue',
-                               font=('Arial',16,'bold'))
-                 
-                self.e.grid(row=i, column=j)
-                self.e.insert(END, new_list[i][j])
 
 if __name__ == '__main__':
     # Create tkinter instance and hide window
@@ -39,6 +28,30 @@ if __name__ == '__main__':
         print('Invalid data type')
         exit()
 
+    # Convert video and flight logs to dataframe with needed info per frame
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = []
+
+    while cap.isOpened():
+        _ret, frame = cap.read()
+        if frame is None:
+            break
+        frames.append(frame)
+    cap.release()
+    no_of_seconds = int(len(frames) / 30)
+    a_list = []
+    for i in range(no_of_seconds):
+        true_row = df_true.iloc[i]
+        latitude = str(true_row[4])
+        longitude = str(true_row[5])
+        altitude = str(true_row[6])
+        the_list = [i, longitude, latitude, altitude]
+        a_list.append(the_list)
+
+    df_converted = pd.DataFrame(a_list, columns = ['Frame Number', 'Longitude', 'Latitude', 'Altitude'])
+    df_converted.to_csv('outputs/converted.csv')
+
     # FOR TESTING:
     '''
     SAVE YOLO MODEL:
@@ -51,59 +64,63 @@ if __name__ == '__main__':
     '''
 
     # Run yolov4 with DEEPSORT tracking on video
-    call(["python", "object_tracker.py", "--weights", "./checkpoints/yolov4-416", "--size", '416', 
-    "--model", "yolov4", "--video", video_path, "--output", "./outputs/results.avi", "--iou", ".75", 
-    "score", "0.75", "--dont_show", "--info"], shell = False)
+    output_path = './outputs/results.avi'
+    args = ["python", "object_tracker.py", "--weights", "./checkpoints/yolov4-416", "--size", '416', 
+    "--model", "yolov4", "--video", video_path, "--output", output_path, "--dont_show", "--info"]
+    subprocess.call(args, shell=False)
 
-    # Play results video
-    results_path = "outputs/results.avi"
-
-    # Video threading for enhanced FPS
-    threaded_video = ThreadedVideo(results_path)
+    # Play results video with video threading for enhanced FPS
+    threaded_video = ThreadedVideo(output_path)
     while True:
         try:
             threaded_video.show_frame()
         except AttributeError:
             pass
         except:
+            cv2.destroyAllWindows()
+            for i in range (1,5):
+                cv2.waitKey(1)
             break
 
-    cv2.destroyAllWindows()
-
-    # Read detections (Has time, class + id, width, and height)
+    # Read detections (Has frame number, class + id, width, and height)
     df_detections = pd.read_csv('outputs/detections.csv')
     list_of_detections = []
     for _, row in df_detections.iterrows():
-        detection_time = row[0]
+        frame_num = row[0]
         class_id = str(row[1])
         detection_class = class_id[:2]
-        class_dict = {'d1': 'Low', 'd2': 'Medium', 'd3': 'Severe'}
+        class_dict = {'d1': 'Minimal', 'd2': 'Tolerable', 'd3': 'Severe'}
         severity = class_dict.get(detection_class)
-        width = row[2] / 416
-        height = row[3] / 416
-        size = width * height
-        info_list = [size, severity, detection_time]
+        width = row[2]
+        height = row[3]
+        info_list = [width, height, severity, frame_num, class_id]
         list_of_detections.append(info_list)
 
-    df = pd.DataFrame(list_of_detections, columns=['Bbox Size', 'Severity', 'Time'])
-
-    # Using time of each detection, get actual size and gps coords
-    new_list = [['Size', 'Severity', 'Longitude', 'Latitude']]
+    df = pd.DataFrame(list_of_detections, columns=['Width', 'Height', 'Severity', 'Frame Number', 'Class ID'])
+    # Using frame number of each detection, get actual size and gps coords
+    new_list = []
     for _, row in df.iterrows():
-        detection_time = row[2]
-        # With this, get time from flight logs and from that get gps coords
-        altitude = "1"
-        denominator = int(altitude)
-        actual_size = row[0] / denominator
-        longitude = "Test"
-        latitude = "Test"
-        new_list.append([row[0], row[1], longitude, latitude])
-        
-    df_detections_clean = pd.DataFrame(new_list, columns = ['Size', 'Severity', 'Longitude', 'Latitude'])
-    total_rows = len(new_list)
-    total_columns = len(new_list[0])
+        the_class_id = row[4]
+        frame_no = int(row[3] / 30)
+        true_row = df_converted.iloc[frame_no]
+        longitude = true_row[1]
+        latitude = true_row[2]
+        true_alt = true_row[3]
+        alt = float(true_alt) * 0.3048
+        alt_mult_w = 376 # Based on altitude (in cm)
+        alt_mult_h = 675 # Based on altitude (in cm)
+        width = float(row[0])
+        height = float(row[1])
+        actual_width = (width / 416) * alt_mult_w * 0.01
+        actual_height = (height / 416) * alt_mult_h * 0.01
+        size = (actual_width * actual_height)
+        new_list.append([size, row[2], longitude, latitude, frame_no, the_class_id])
+
+    df_detections_clean = pd.DataFrame(new_list, columns = ['Size (m^2)', 'Severity', 'Longitude', 'Latitude', 'Time of Detection', 'Class ID'])
+    df_detections_clean.to_csv('outputs/clean_detections.csv', index = False)
     
     # With tkinter, show results
-    root2 = Tk()
-    t = Table(root2)
-    root2.mainloop()
+    subprocess.call(["python", "show_table.py"], shell = False)
+
+
+    # Add time and groond truth and accuracy

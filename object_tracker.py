@@ -224,11 +224,18 @@ def main(_argv):
 
         # if enable info flag then print details about each track
             if FLAGS.info:
-                current_time = str(int((time.time() - time_actual_start) / duration))
+                # current_time = str(int((time.time() - time_actual_start) / duration))
+                frame_no = frame_num
                 obj_class_id = class_name + '-' + str(track.track_id)
-                bbox_width = int(bbox_2[2])
-                bbox_height = int(bbox_2[3])
-                a_detection = [current_time, obj_class_id, str(bbox_width), str(bbox_height)]
+                bbox_xmin = int(bbox[0])
+                bbox_ymin = int(bbox[1])
+                bbox_xmax = int(bbox[2])
+                bbox_ymax = int(bbox[3])
+                bbox_width = bbox_xmax - bbox_xmin
+                bbox_height = bbox_ymax - bbox_ymin
+                #bbox_width = float(bbox_2[2])
+                #bbox_height = float(bbox_2[3])
+                a_detection = [frame_no, obj_class_id, str(bbox_width), str(bbox_height)]
 
                 detections_list.append(a_detection)
                 # print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
@@ -249,7 +256,7 @@ def main(_argv):
     cv2.destroyAllWindows()
     
     # Create pandas dataframe from detections list
-    df = pd.DataFrame(detections_list, columns=['Time', 'Class-ID', 'Width', 'Height'])
+    df = pd.DataFrame(detections_list, columns=['Frame Number', 'Class-ID', 'Width', 'Height'])
     df_detections = df.drop_duplicates(subset=df.columns[1], keep = 'first')
     df_detections.to_csv('outputs/detections.csv', index = False)
 

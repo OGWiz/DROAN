@@ -24,5 +24,7 @@ class ThreadedVideo(object):
             time.sleep(self.FPS)
             
     def show_frame(self):
-        cv2.imshow('frame', self.frame)
+        cv2.namedWindow("Results", cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("Results", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.imshow("Results", self.frame)
         cv2.waitKey(self.FPS_MS)
