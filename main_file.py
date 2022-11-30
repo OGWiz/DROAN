@@ -6,6 +6,17 @@ from tkinter import *
 from tkinter import filedialog
 from threaded_video import ThreadedVideo
 
+def get_image_size(altitude):
+    sw = 6.31
+    sh = 4.75
+    fr = 4.49
+    imW = 1920
+    imH = 1080
+    gsd = (sw * altitude * 100) / (fr * imW)
+    width_multiplier = (gsd * imW) / 100
+    height_multiplier = (gsd * imH) / 100
+    return (width_multiplier, height_multiplier)
+
 if __name__ == '__main__':
     # Create tkinter instance and hide window
     root = Tk()
@@ -39,15 +50,17 @@ if __name__ == '__main__':
             break
         frames.append(frame)
     cap.release()
-    no_of_seconds = int(len(frames) / 30)
     a_list = []
-    for i in range(no_of_seconds):
-        true_row = df_true.iloc[i]
-        latitude = str(true_row[4])
-        longitude = str(true_row[5])
-        altitude = str(true_row[6])
-        the_list = [i, longitude, latitude, altitude]
-        a_list.append(the_list)
+    for i in range(int(len(frames)/3)):
+        try:
+            true_row = df_true.iloc[i]
+            latitude = str(true_row[4])
+            longitude = str(true_row[5])
+            altitude = str(true_row[6])
+            the_list = [i, longitude, latitude, altitude]
+            a_list.append(the_list)
+        except:
+            pass
 
     df_converted = pd.DataFrame(a_list, columns = ['Frame Number', 'Longitude', 'Latitude', 'Altitude'])
     df_converted.to_csv('outputs/converted.csv')
@@ -107,12 +120,11 @@ if __name__ == '__main__':
         latitude = true_row[2]
         true_alt = true_row[3]
         alt = float(true_alt) * 0.3048
-        alt_mult_w = 376 # Based on altitude (in cm)
-        alt_mult_h = 675 # Based on altitude (in cm)
+        alt_mult_w, alt_mult_h = get_image_size(alt)
         width = float(row[0])
         height = float(row[1])
-        actual_width = (width / 416) * alt_mult_w * 0.01
-        actual_height = (height / 416) * alt_mult_h * 0.01
+        actual_width = (width / 416) * alt_mult_w 
+        actual_height = (height / 416) * alt_mult_h
         size = (actual_width * actual_height)
         new_list.append([size, row[2], longitude, latitude, frame_no, the_class_id])
 
@@ -123,4 +135,4 @@ if __name__ == '__main__':
     subprocess.call(["python", "show_table.py"], shell = False)
 
 
-    # Add time and groond truth and accuracy
+    # Add labels to video (longitude, latitude, altitude)

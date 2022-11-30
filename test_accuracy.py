@@ -38,15 +38,19 @@ if __name__ == '__main__':
     to_remove = []
     new_detections = []
     for detection in detections:
-        for truth in ground_truth[:10]:
+        for truth in ground_truth:
             if detection[1] == truth[1]:
-                if (0.9 * float(truth[2])) < float(detection[2]) < (1.1 * float(truth[2])):
-                    if (0.9 * float(truth[3])) < float(detection[3]) < (1.1 * float(truth[3])):
+                true_long = round(float(truth[2]), 4)
+                detected_long = float(detection[2])
+                true_lat = round(float(truth[3]), 4)
+                detected_lat = float(detection[3])
+                if (true_long - 0.0001) <= detected_long <= (true_long + 0.0001):
+                    if (true_lat - 0.0001) <= detected_lat <= (true_lat + 0.0001):
                         if truth not in to_remove:
                             to_remove.append(truth)
-                        TP += 1
-                        new_detections.append(detection)
-                        break
+                            TP += 1
+                            new_detections.append(detection)
+                            break
     
     FP = len(detections) - TP
 
